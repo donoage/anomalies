@@ -16,7 +16,16 @@ logger = logging.getLogger(__name__)
 class EODScheduler:
     def __init__(self):
         self.scheduler = BackgroundScheduler(timezone=Config.TIMEZONE)
-        self.data_fetcher = DataFetcher()
+        
+        # Choose data fetcher based on configuration
+        if Config.USE_FLAT_FILES:
+            logger.info("Using Flat Files data fetcher")
+            from flatfile_fetcher import FlatFileFetcher
+            self.data_fetcher = FlatFileFetcher()
+        else:
+            logger.info("Using REST API data fetcher")
+            self.data_fetcher = DataFetcher()
+        
         self.anomaly_detector = AnomalyDetector()
         self.timezone = pytz.timezone(Config.TIMEZONE)
     
@@ -39,7 +48,20 @@ class EODScheduler:
             
             # Step 1: Fetch daily aggregates
             logger.info("Step 1: Fetching daily aggregates...")
-            count = self.data_fetcher.fetch_daily_aggregates(yesterday)
+            logger.info(f"Mode: Flat Files={Config.USE_FLAT_FILES}, Dark Pool Only={Config.DARK_POOL_ONLY}")
+            
+            if Config.USE_FLAT_FILES:
+                # Use flat files with optional dark pool filtering
+                if Config.USE_TRADES_FILES:
+                    # Use trades files for dark pool filtering
+                    count = self.data_fetcher.fetch_trades_and_aggregate(yesterday, Config.DARK_POOL_ONLY)
+                else:
+                    # Use day aggregates (no dark pool filtering available)
+                    count = self.data_fetcher.fetch_daily_aggregates(yesterday, dark_pool_only=False)
+            else:
+                # Use REST API (no dark pool filtering)
+                count = self.data_fetcher.fetch_daily_aggregates(yesterday)
+            
             logger.info(f"Fetched {count} ticker aggregates")
             
             # Step 2: Build/update lookup table

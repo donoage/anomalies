@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class DataFetcher:
+    """
+    Data fetcher that uses Polygon.io REST API
+    For Flat Files with dark pool filtering, use FlatFileFetcher instead
+    """
     def __init__(self):
         if not Config.POLYGON_API_KEY:
             raise ValueError("POLYGON_API_KEY not set in environment variables")
