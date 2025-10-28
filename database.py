@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Text
+from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Float, DateTime, Date, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 from datetime import datetime
@@ -43,7 +43,7 @@ class DailyAggregate(Base):
     id = Column(Integer, primary_key=True)
     ticker = Column(String(10), nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)
-    volume = Column(Integer)
+    volume = Column(BigInteger)  # Changed from Integer to handle large volumes
     open = Column(Float)
     close = Column(Float)
     high = Column(Float)
