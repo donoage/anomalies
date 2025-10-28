@@ -220,13 +220,52 @@ def run_eod():
 @app.route('/api/backfill', methods=['POST'])
 def backfill():
     """
-    Backfill historical data
+    Backfill historical data and detect anomalies
     """
     days = request.json.get('days', 30)
     
     try:
+        logger.info(f"Starting backfill for {days} days...")
+        
+        # Fetch historical data
         data_fetcher.backfill_data(days)
-        return jsonify({'status': 'success', 'message': f'Backfilled {days} days'})
+        logger.info(f"✓ Data fetched for {days} days")
+        
+        # Build lookup table for all dates
+        logger.info("Building lookup tables...")
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=days)
+        current_date = start_date
+        
+        while current_date <= end_date:
+            if current_date.weekday() < 5:  # Skip weekends
+                try:
+                    anomaly_detector.build_lookup_table(current_date)
+                except Exception as e:
+                    logger.warning(f"Could not build lookup for {current_date}: {e}")
+            current_date += timedelta(days=1)
+        
+        logger.info("✓ Lookup tables built")
+        
+        # Detect anomalies for recent dates (last 2 days)
+        logger.info("Detecting anomalies...")
+        anomaly_count = 0
+        for days_back in range(2):
+            target_date = end_date - timedelta(days=days_back)
+            if target_date.weekday() < 5:  # Skip weekends
+                try:
+                    anomalies = anomaly_detector.detect_anomalies(target_date)
+                    anomaly_count += len(anomalies)
+                    logger.info(f"✓ Detected {len(anomalies)} anomalies for {target_date}")
+                except Exception as e:
+                    logger.warning(f"Could not detect anomalies for {target_date}: {e}")
+        
+        logger.info(f"✓ Backfill complete! Detected {anomaly_count} total anomalies")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Backfilled {days} days and detected {anomaly_count} anomalies'
+        })
     except Exception as e:
         logger.error(f"Error backfilling data: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
