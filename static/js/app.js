@@ -1,11 +1,13 @@
 // Global state
 let currentDate = null;
-let currentZScore = 3.0;
+let currentZScore = 1.5;  // Match the threshold in .env
 let volumeChart = null;
 let priceChart = null;
+let availableDates = [];  // Store available dates with anomalies
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    loadAvailableDates();
     loadStats();
     loadAnomalies();
     setupEventListeners();
@@ -21,6 +23,8 @@ function setupEventListeners() {
     });
     document.getElementById('apply-filter').addEventListener('click', () => {
         currentZScore = parseFloat(document.getElementById('z-score-filter').value);
+        loadAvailableDates();  // Reload available dates with new filter
+        loadStats();  // Update stats with new z-score filter
         loadAnomalies();
     });
     
@@ -36,7 +40,10 @@ function setupEventListeners() {
 // Load statistics
 async function loadStats() {
     try {
-        const response = await fetch('/api/stats');
+        const params = new URLSearchParams();
+        if (currentZScore) params.append('min_z_score', currentZScore);
+        
+        const response = await fetch(`/api/stats?${params}`);
         const data = await response.json();
         
         document.getElementById('latest-date').textContent = data.latest_date || 'N/A';
@@ -80,6 +87,7 @@ async function loadAnomalies() {
         
         currentDate = data.date;
         document.getElementById('date-input').value = currentDate;
+        renderCalendar();  // Update calendar active state
         
         data.anomalies.forEach(anomaly => {
             const card = createAnomalyCard(anomaly);
@@ -99,36 +107,58 @@ function createAnomalyCard(anomaly) {
     card.className = 'anomaly-card';
     card.onclick = () => showDetails(anomaly.ticker, anomaly.date);
     
-    const priceChangeClass = anomaly.price_diff >= 0 ? 'positive' : 'negative';
-    const priceChangeSymbol = anomaly.price_diff >= 0 ? '+' : '';
+    const priceChangeClass = anomaly.price_diff && anomaly.price_diff >= 0 ? 'positive' : 'negative';
+    const priceChangeSymbol = anomaly.price_diff && anomaly.price_diff >= 0 ? '+' : '';
+    const priceChangeText = anomaly.price_diff !== null && anomaly.price_diff !== undefined 
+        ? `${priceChangeSymbol}${anomaly.price_diff.toFixed(2)}%` 
+        : 'N/A';
+    
+    // Format date nicely
+    const dateObj = new Date(anomaly.date + 'T00:00:00');
+    const formattedDate = dateObj.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+    });
+    
+    // FinViz chart URL
+    const finvizChart = `https://finviz.com/chart.ashx?t=${anomaly.ticker}&ty=c&ta=1&p=d&s=l`;
     
     card.innerHTML = `
         <div class="anomaly-header">
-            <div class="ticker-name">${anomaly.ticker}</div>
+            <div>
+                <div class="ticker-name">${anomaly.ticker}</div>
+                <div class="detection-date">${formattedDate}</div>
+            </div>
             <div class="z-score-badge">Z-Score: ${anomaly.z_score.toFixed(2)}</div>
         </div>
-        <div class="anomaly-metrics">
-            <div class="metric">
-                <div class="metric-label">Trades</div>
-                <div class="metric-value">${anomaly.trades.toLocaleString()}</div>
+        <div class="anomaly-content">
+            <div class="anomaly-chart">
+                <img src="${finvizChart}" alt="${anomaly.ticker} chart" onerror="this.style.display='none'">
             </div>
-            <div class="metric">
-                <div class="metric-label">Avg Trades (5d)</div>
-                <div class="metric-value">${anomaly.avg_trades.toLocaleString()}</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Price Change</div>
-                <div class="metric-value ${priceChangeClass}">
-                    ${priceChangeSymbol}${anomaly.price_diff.toFixed(2)}%
+            <div class="anomaly-metrics">
+                <div class="metric">
+                    <div class="metric-label">Trades</div>
+                    <div class="metric-value">${anomaly.trades.toLocaleString()}</div>
                 </div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Close Price</div>
-                <div class="metric-value">$${anomaly.close_price.toFixed(2)}</div>
-            </div>
-            <div class="metric">
-                <div class="metric-label">Volume</div>
-                <div class="metric-value">${(anomaly.volume || 0).toLocaleString()}</div>
+                <div class="metric">
+                    <div class="metric-label">Avg Trades (20d)</div>
+                    <div class="metric-value">${anomaly.avg_trades.toLocaleString()}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Price Change</div>
+                    <div class="metric-value ${priceChangeClass}">
+                        ${priceChangeText}
+                    </div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Close Price</div>
+                    <div class="metric-value">$${anomaly.close_price.toFixed(2)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Volume</div>
+                    <div class="metric-value">${(anomaly.volume || 0).toLocaleString()}</div>
+                </div>
             </div>
         </div>
     `;
@@ -136,21 +166,72 @@ function createAnomalyCard(anomaly) {
     return card;
 }
 
-// Navigate dates
-function navigateDate(direction) {
-    if (!currentDate) return;
+// Load available dates
+async function loadAvailableDates() {
+    try {
+        const params = new URLSearchParams();
+        if (currentZScore) params.append('min_z_score', currentZScore);
+        
+        const response = await fetch(`/api/anomalies/dates?${params}`);
+        const data = await response.json();
+        availableDates = data.dates;
+        renderCalendar();
+    } catch (error) {
+        console.error('Error loading available dates:', error);
+    }
+}
+
+// Render calendar
+function renderCalendar() {
+    const calendar = document.getElementById('calendar');
+    if (!calendar) return;  // Calendar element doesn't exist yet
     
-    const date = new Date(currentDate);
-    date.setDate(date.getDate() + direction);
+    calendar.innerHTML = '';
     
-    // Skip weekends
-    while (date.getDay() === 0 || date.getDay() === 6) {
-        date.setDate(date.getDate() + direction);
+    if (availableDates.length === 0) {
+        calendar.innerHTML = '<div style="color: #9ca3af;">No dates with anomalies</div>';
+        return;
     }
     
-    currentDate = date.toISOString().split('T')[0];
-    document.getElementById('date-input').value = currentDate;
-    loadAnomalies();
+    availableDates.forEach(date => {
+        const dateEl = document.createElement('div');
+        dateEl.className = 'calendar-date has-data';
+        if (date === currentDate) {
+            dateEl.classList.add('active');
+        }
+        
+        // Format date nicely
+        const d = new Date(date + 'T00:00:00');
+        const formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dateEl.textContent = formatted;
+        dateEl.title = date;
+        
+        dateEl.onclick = () => {
+            currentDate = date;
+            document.getElementById('date-input').value = date;
+            loadAnomalies();
+            renderCalendar();  // Re-render to update active state
+        };
+        
+        calendar.appendChild(dateEl);
+    });
+}
+
+// Navigate dates
+function navigateDate(direction) {
+    if (!currentDate || availableDates.length === 0) return;
+    
+    const currentIndex = availableDates.indexOf(currentDate);
+    if (currentIndex === -1) return;
+    
+    // Navigate to next/previous available date
+    const newIndex = currentIndex - direction;  // -1 for next (dates are DESC), +1 for prev
+    
+    if (newIndex >= 0 && newIndex < availableDates.length) {
+        currentDate = availableDates[newIndex];
+        document.getElementById('date-input').value = currentDate;
+        loadAnomalies();
+    }
 }
 
 // Show details modal
@@ -178,10 +259,13 @@ async function showDetails(ticker, date) {
         document.getElementById('detail-avg-trades').textContent = anomaly.avg_trades.toLocaleString();
         document.getElementById('detail-z-score').textContent = anomaly.z_score.toFixed(2);
         
-        const priceChangeClass = anomaly.price_diff >= 0 ? 'positive' : 'negative';
-        const priceChangeSymbol = anomaly.price_diff >= 0 ? '+' : '';
+        const priceChangeClass = anomaly.price_diff && anomaly.price_diff >= 0 ? 'positive' : 'negative';
+        const priceChangeSymbol = anomaly.price_diff && anomaly.price_diff >= 0 ? '+' : '';
+        const priceChangeText = anomaly.price_diff !== null && anomaly.price_diff !== undefined 
+            ? `${priceChangeSymbol}${anomaly.price_diff.toFixed(2)}%` 
+            : 'N/A';
         document.getElementById('detail-price-change').innerHTML = 
-            `<span class="${priceChangeClass}">${priceChangeSymbol}${anomaly.price_diff.toFixed(2)}%</span>`;
+            `<span class="${priceChangeClass}">${priceChangeText}</span>`;
         document.getElementById('detail-close-price').textContent = `$${anomaly.close_price.toFixed(2)}`;
         
         // Create charts

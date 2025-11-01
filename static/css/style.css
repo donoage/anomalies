@@ -88,6 +88,67 @@ header h1 {
     align-items: center;
 }
 
+/* Calendar */
+.calendar-container {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.calendar-container h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.1rem;
+    color: #4b5563;
+}
+
+.calendar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.calendar-date {
+    padding: 8px 12px;
+    background: #f3f4f6;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.calendar-date:hover {
+    background: #e5e7eb;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.calendar-date.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    font-weight: 600;
+}
+
+.calendar-date.has-data {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
+.calendar-date.has-data:hover {
+    background: #059669;
+}
+
+.calendar-date.has-data.active {
+    background: #667eea;
+    border-color: #667eea;
+}
+
 .date-input, .filter-input {
     padding: 10px 15px;
     border: 2px solid #e0e0e0;
@@ -190,6 +251,13 @@ header h1 {
     color: #333;
 }
 
+.detection-date {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
 .z-score-badge {
     background: #667eea;
     color: white;
@@ -198,10 +266,29 @@ header h1 {
     font-weight: bold;
 }
 
+.anomaly-content {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.anomaly-chart {
+    flex-shrink: 0;
+    width: 300px;
+}
+
+.anomaly-chart img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
 .anomaly-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
+    flex: 1;
 }
 
 .metric {

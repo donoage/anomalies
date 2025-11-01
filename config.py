@@ -27,6 +27,7 @@ class Config:
     USE_FLAT_FILES = os.getenv('USE_FLAT_FILES', 'true').lower() == 'true'
     DARK_POOL_ONLY = os.getenv('DARK_POOL_ONLY', 'true').lower() == 'true'
     USE_TRADES_FILES = os.getenv('USE_TRADES_FILES', 'false').lower() == 'true'  # Slower but allows dark pool filtering
+    MIN_TRADE_SIZE = int(os.getenv('MIN_TRADE_SIZE', 1000))  # Minimum shares per trade to filter noise (focus on block trades)
     
     # Scheduling Configuration
     # Flat files are available at 11 AM ET according to Polygon.io docs

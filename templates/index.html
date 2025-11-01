@@ -41,9 +41,14 @@
             </div>
             <div class="filter-controls">
                 <label for="z-score-filter">Min Z-Score:</label>
-                <input type="number" id="z-score-filter" value="3.0" step="0.5" min="1.0" class="filter-input">
+                <input type="number" id="z-score-filter" value="1.5" step="0.1" min="1.0" class="filter-input">
                 <button id="apply-filter" class="btn btn-primary">Apply</button>
             </div>
+        </div>
+
+        <div class="calendar-container">
+            <h3>Available Dates</h3>
+            <div id="calendar" class="calendar"></div>
         </div>
 
         <div class="anomalies-section">

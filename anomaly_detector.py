@@ -129,6 +129,11 @@ class AnomalyDetector:
             anomalies = []
             
             for data in daily_data:
+                # Skip tickers with very low trade counts (noise)
+                trades = data.transactions or 0
+                if trades < 500:
+                    continue
+                
                 # Get lookup table data
                 lookup = session.query(LookupTable).filter_by(
                     ticker=data.ticker,
@@ -139,7 +144,6 @@ class AnomalyDetector:
                     continue
                 
                 # Calculate z-score
-                trades = data.transactions or 0
                 z_score = (trades - lookup.avg_trades) / lookup.std_trades
                 
                 # Check if anomaly

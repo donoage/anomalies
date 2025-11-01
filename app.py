@@ -68,9 +68,15 @@ def get_anomaly_dates():
     """
     Get list of dates with anomalies
     """
+    min_z_score = request.args.get('min_z_score', type=float)
+    
     session = db.get_session()
     try:
-        dates = session.query(Anomaly.date).distinct().order_by(Anomaly.date.desc()).limit(30).all()
+        query = session.query(Anomaly.date).distinct()
+        if min_z_score:
+            # Only include dates that have at least one anomaly above the threshold
+            query = query.filter(Anomaly.z_score >= min_z_score)
+        dates = query.order_by(Anomaly.date.desc()).limit(30).all()
         return jsonify({
             'dates': [d[0].isoformat() for d in dates]
         })
@@ -175,23 +181,31 @@ def get_stats():
     """
     Get overall statistics
     """
+    min_z_score = request.args.get('min_z_score', type=float)
+    
     session = db.get_session()
     try:
         # Get latest date
         latest_anomaly = session.query(Anomaly).order_by(Anomaly.date.desc()).first()
         latest_date = latest_anomaly.date if latest_anomaly else None
         
-        # Count anomalies for latest date
+        # Count anomalies for latest date (filtered by z-score if provided)
         if latest_date:
-            anomaly_count = session.query(Anomaly).filter_by(date=latest_date).count()
+            query = session.query(Anomaly).filter_by(date=latest_date)
+            if min_z_score:
+                query = query.filter(Anomaly.z_score >= min_z_score)
+            anomaly_count = query.count()
         else:
             anomaly_count = 0
         
         # Total tickers tracked
         total_tickers = session.query(DailyAggregate.ticker).distinct().count()
         
-        # Total anomalies detected
-        total_anomalies = session.query(Anomaly).count()
+        # Total anomalies detected (filtered by z-score if provided)
+        query = session.query(Anomaly)
+        if min_z_score:
+            query = query.filter(Anomaly.z_score >= min_z_score)
+        total_anomalies = query.count()
         
         return jsonify({
             'latest_date': latest_date.isoformat() if latest_date else None,
